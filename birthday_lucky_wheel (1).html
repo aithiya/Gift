@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Birthday Lucky Wheel 💕</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+  font-family:Arial,"Noto Sans Thai",sans-serif;
+  background:linear-gradient(135deg,#fff0f6,#ffe4ec,#fff7df);
+  color:#5b3040; overflow:hidden;
+}
+.card{
+  width:min(92vw,520px); padding:30px 22px 26px; text-align:center;
+  background:rgba(255,255,255,.88); border-radius:28px;
+  box-shadow:0 18px 60px rgba(110,45,75,.18);
+}
+h1{margin:0 0 8px;font-size:32px}
+.subtitle{font-size:16px;margin-bottom:18px}
+.wheel-wrap{position:relative;width:min(78vw,350px);height:min(78vw,350px);margin:0 auto 20px}
+canvas{width:100%;height:100%;filter:drop-shadow(0 10px 14px rgba(80,30,50,.18))}
+.pointer{
+  position:absolute;top:-5px;left:50%;transform:translateX(-50%);
+  width:0;height:0;border-left:17px solid transparent;border-right:17px solid transparent;
+  border-top:34px solid #d83c6b;z-index:3;
+}
+button{
+  border:0;border-radius:999px;padding:15px 34px;font-size:20px;font-weight:bold;
+  color:white;background:#d83c6b;box-shadow:0 8px 18px rgba(216,60,107,.3);cursor:pointer;
+}
+button:disabled{opacity:.55;cursor:not-allowed}
+#hint{min-height:24px;margin:10px 0 0}
+#result{
+  display:none;position:fixed;inset:0;background:rgba(72,22,45,.72);
+  align-items:center;justify-content:center;padding:20px;z-index:10;
+}
+.result-card{
+  background:white;border-radius:30px;padding:38px 28px;text-align:center;width:min(90vw,430px);
+  box-shadow:0 20px 80px rgba(0,0,0,.3);animation:pop .6s ease;
+}
+.money{font-size:58px;font-weight:900;color:#d83c6b;margin:14px 0}
+.small{font-size:16px}
+@keyframes pop{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+.confetti{position:fixed;top:-20px;font-size:25px;animation:fall 2.8s linear forwards;z-index:20}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎂 Happy Birthday My Fam ❤️</h1>
+  <div class="subtitle">ลองสุ่มดูซิว่าปีนี้จะได้ของขวัญเป็นอะไร</div>
+
+  <div class="wheel-wrap">
+    <div class="pointer"></div>
+    <canvas id="wheel" width="700" height="700"></canvas>
+  </div>
+
+  <div id="hint">🎁 ทุกช่องยังเป็นความลับ... พร้อมหรือยัง?</div>
+  <br>
+  <button id="spin">Spin 🎁</button>
+</div>
+
+<div id="result">
+  <div class="result-card">
+    <div style="font-size:42px">🎉🎉🎉</div>
+    <div class="small">CONGRATULATIONS!</div>
+    <div class="money" id="money"></div>
+    <div style="font-size:21px;font-weight:bold">Happy Birthday My Fam ❤️</div>
+    <p>เก่งมาก! นี่คือของขวัญจากเค้า 💕</p>
+  </div>
+</div>
+
+<script>
+const prizes = [3000,4000,5000,6000,7000,8000,9000,10000];
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+const spinBtn = document.getElementById("spin");
+const hint = document.getElementById("hint");
+const result = document.getElementById("result");
+const money = document.getElementById("money");
+
+let rotation = 0;
+let spinning = false;
+
+function drawWheel(){
+  const cx=350, cy=350, r=325, n=prizes.length;
+  const colors=["#ffd6e5","#ffe6b3","#d9f4e8","#dbe7ff","#eadcff","#ffe0d6","#d8f0ff","#f7dfef"];
+  ctx.clearRect(0,0,700,700);
+  for(let i=0;i<n;i++){
+    const a0=-Math.PI/2+i*2*Math.PI/n;
+    const a1=a0+2*Math.PI/n;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,a0,a1);ctx.closePath();
+    ctx.fillStyle=colors[i];ctx.fill();
+    ctx.strokeStyle="#fff";ctx.lineWidth=8;ctx.stroke();
+
+    // Hide all prize amounts until the wheel stops.
+    ctx.save();ctx.translate(cx,cy);ctx.rotate((a0+a1)/2);
+    ctx.fillStyle="#9b5570";ctx.font="bold 48px Arial";ctx.textAlign="center";
+    ctx.fillText("🎁",220,17);ctx.restore();
+  }
+  ctx.beginPath();ctx.arc(cx,cy,70,0,Math.PI*2);ctx.fillStyle="#d83c6b";ctx.fill();
+  ctx.fillStyle="#fff";ctx.font="bold 27px Arial";ctx.textAlign="center";ctx.fillText("LUCKY",350,343);ctx.fillText("♥",350,377);
+}
+drawWheel();
+
+function spin(){
+  if(spinning || localStorage.getItem("birthdayWheelUsed")==="yes") return;
+  spinning=true; spinBtn.disabled=true; hint.textContent="✨ กำลังเปิดของขวัญ... ✨";
+
+  const winner = Math.floor(Math.random()*prizes.length);
+  const segment = 360/prizes.length;
+  // Pointer is at top. Rotate so the selected segment centers under pointer.
+  const target = 360*6 + (360 - (winner*segment + segment/2));
+  const start = rotation;
+  const end = rotation + target;
+  const duration = 5600;
+  const t0 = performance.now();
+
+  function ease(t){return 1-Math.pow(1-t,4)}
+  function animate(now){
+    const t=Math.min(1,(now-t0)/duration);
+    rotation=start+(end-start)*ease(t);
+    canvas.style.transform=`rotate(${rotation}deg)`;
+    if(t<1) requestAnimationFrame(animate);
+    else{
+      localStorage.setItem("birthdayWheelUsed","yes");
+      setTimeout(()=>showResult(prizes[winner]),500);
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+function showResult(value){
+  money.textContent="฿"+value.toLocaleString("th-TH");
+  result.style.display="flex";
+  for(let i=0;i<70;i++){
+    const e=document.createElement("div");e.className="confetti";
+    e.textContent=["🎉","💕","✨","🎊","💰"][Math.floor(Math.random()*5)];
+    e.style.left=Math.random()*100+"vw";
+    e.style.animationDelay=Math.random()*1.2+"s";
+    document.body.appendChild(e);
+    setTimeout(()=>e.remove(),4000);
+  }
+}
+spinBtn.onclick=spin;
+if(localStorage.getItem("birthdayWheelUsed")==="yes"){
+  spinBtn.disabled=true;
+  hint.textContent="🎁 ของขวัญถูกเปิดไปแล้ว 💕";
+}
+</script>
+</body>
+</html>
